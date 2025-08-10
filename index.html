@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bill Creator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Noto Sans Devanagari', sans-serif; }
+        @media print {
+            .no-print { display: none !important; }
+            .print-area { box-shadow: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <!-- Header -->
+    <div class="bg-white shadow-lg no-print">
+        <div class="max-w-4xl mx-auto px-4 py-4">
+            <div class="flex justify-between items-center">
+                <h1 class="text-2xl font-bold text-indigo-600">📋 Bill Creator</h1>
+                <div class="flex gap-3">
+                    <button onclick="showHistory()" class="bg-gray-100 hover:bg-gray-200 p-3 rounded-lg transition-colors" title="History">
+                        📚
+                    </button>
+                    <button onclick="clearBill()" class="bg-red-100 hover:bg-red-200 p-3 rounded-lg transition-colors" title="Clear">
+                        🗑️
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="max-w-4xl mx-auto p-4">
+        <!-- Bill Form -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-6 print-area" id="billArea">
+            <!-- Bill Header -->
+            <div class="mb-6 border-b pb-4">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="text-3xl font-bold text-gray-800" id="shopName" oncontextmenu="editShopName(event)">बिल / BILL</h2>
+                    <div class="relative no-print">
+                        <button onclick="toggleBillMenu()" class="bg-gray-100 hover:bg-gray-200 p-2 rounded-lg transition-colors">
+                            ⋮
+                        </button>
+                        <div id="billMenu" class="hidden absolute right-0 top-12 bg-white shadow-lg rounded-lg border z-10 w-40">
+                            <button onclick="printBill()" class="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2">
+                                🖨️ Print
+                            </button>
+                            <button onclick="saveBill()" class="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2">
+                                💾 Save
+                            </button>
+                            <button onclick="shareBill()" class="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2">
+                                📤 Share
+                            </button>
+                            <button onclick="downloadImage()" class="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2">
+                                📷 Image
+                            </button>
+                            <button onclick="sendNotice()" class="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2">
+                                📢 Send Notice
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-between text-sm text-gray-600">
+                    <span>दिनांक: <span id="currentDate"></span></span>
+                    <span>बिल नं: <span id="billNumber"></span></span>
+                </div>
+            </div>
+
+            <!-- Entries List -->
+            <div class="mb-32">
+                <div id="entriesList" class="space-y-2 max-h-96 overflow-y-auto">
+                    <!-- Entries will be added here -->
+                </div>
+                
+                <!-- Total Section -->
+                <div class="border-t pt-4 mt-6">
+                    <div class="text-left">
+                        <div class="text-lg font-semibold text-gray-700 mb-2">कुल राशि:</div>
+                        <div class="text-3xl font-bold text-indigo-600" id="totalAmount">₹ 0.00</div>
+                    </div>
+                </div>
+            </div>
+
+
+        </div>
+
+
+    </div>
+
+    <!-- Fixed Bottom Input Form -->
+    <div class="fixed bottom-0 left-0 right-0 bg-white shadow-2xl border-t border-gray-200 no-print backdrop-blur-sm">
+        <div class="max-w-4xl mx-auto p-6">
+            <div class="flex gap-4 items-center">
+                <div class="w-32">
+                    <input type="number" id="amount" placeholder="राशि ₹" min="0" step="1"
+                           class="w-full px-4 py-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-left text-lg font-medium shadow-sm">
+                </div>
+                <div class="flex-1">
+                    <input type="text" id="itemDescription" placeholder="सामान का नाम लिखें..." 
+                           class="w-full px-4 py-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-lg shadow-sm">
+                </div>
+                <button onclick="addEntry()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl">
+                    ➕
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Modal -->
+    <div id="historyModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-96 overflow-hidden">
+                <div class="p-6 border-b">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-xl font-bold text-gray-800">📚 Saved Bills History</h3>
+                        <button onclick="closeHistory()" class="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+                    </div>
+                </div>
+                <div class="p-6 overflow-y-auto max-h-80" id="historyList">
+                    <!-- History items will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bill Details Modal -->
+    <div id="billDetailsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-96 overflow-hidden">
+                <div class="p-6 border-b">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-xl font-bold text-gray-800" id="billDetailsTitle">Bill Details</h3>
+                        <button onclick="closeBillDetails()" class="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+                    </div>
+                </div>
+                <div class="p-6 overflow-y-auto max-h-80" id="billDetailsContent">
+                    <!-- Bill details will be loaded here -->
+                </div>
+                <div class="p-6 border-t">
+                    <div class="flex justify-between items-center">
+                        <div></div>
+                        <div class="relative">
+                            <button onclick="toggleHistoryBillMenu()" class="bg-gray-100 hover:bg-gray-200 p-2 rounded-lg transition-colors">
+                                ⋮
+                            </button>
+                            <div id="historyBillMenu" class="hidden absolute right-0 bottom-12 bg-white shadow-lg rounded-lg border z-10 w-40">
+                                <button onclick="printBillDetails()" class="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2">
+                                    🖨️ Print
+                                </button>
+                                <button onclick="shareBillDetails()" class="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2">
+                                    📤 Share
+                                </button>
+                                <button onclick="downloadBillDetailsImage()" class="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2">
+                                    📷 Image
+                                </button>
+                                <button onclick="sendNoticeDetails()" class="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2">
+                                    📢 Send Notice
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shop Name Edit Modal -->
+    <div id="shopNameModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-md w-full">
+                <div class="p-6 border-b">
+                    <h3 class="text-xl font-bold text-gray-800">दुकान का नाम बदलें</h3>
+                </div>
+                <div class="p-6">
+                    <input type="text" id="newShopName" placeholder="दुकान का नाम लिखें..." 
+                           class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-lg">
+                </div>
+                <div class="p-6 border-t flex gap-3 justify-end">
+                    <button onclick="closeShopNameModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+                    <button onclick="saveShopName()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Message -->
+    <div id="successMessage" class="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg hidden z-50">
+        <span id="successText">✅ Bill saved successfully!</span>
+    </div>
+
+    <script>
+        let entries = [];
+        let entryCounter = 1;
+        let billCounter = 1;
+        let shopName = 'बिल / BILL';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            updateDate();
+            updateBillNumber();
+            loadBillCounter();
+            loadShopName();
+            
+            // Close menus when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('#billMenu') && !e.target.closest('button[onclick="toggleBillMenu()"]')) {
+                    document.getElementById('billMenu').classList.add('hidden');
+                }
+                if (!e.target.closest('#historyBillMenu') && !e.target.closest('button[onclick="toggleHistoryBillMenu()"]')) {
+                    document.getElementById('historyBillMenu').classList.add('hidden');
+                }
+            });
+        });
+
+        function updateDate() {
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('hi-IN');
+            document.getElementById('currentDate').textContent = dateStr;
+        }
+
+        function updateBillNumber() {
+            document.getElementById('billNumber').textContent = String(billCounter).padStart(4, '0');
+        }
+
+        function loadBillCounter() {
+            const saved = localStorage.getItem('billCounter');
+            if (saved) {
+                billCounter = parseInt(saved);
+                updateBillNumber();
+            }
+        }
+
+        function loadShopName() {
+            const saved = localStorage.getItem('shopName');
+            if (saved) {
+                shopName = saved;
+                document.getElementById('shopName').textContent = shopName;
+            }
+        }
+
+        function editShopName(event) {
+            event.preventDefault();
+            document.getElementById('newShopName').value = shopName;
+            document.getElementById('shopNameModal').classList.remove('hidden');
+            document.getElementById('newShopName').focus();
+        }
+
+        function saveShopName() {
+            const newName = document.getElementById('newShopName').value.trim();
+            if (newName) {
+                shopName = newName;
+                document.getElementById('shopName').textContent = shopName;
+                localStorage.setItem('shopName', shopName);
+                closeShopNameModal();
+                showSuccess('✅ दुकान का नाम बदल दिया गया!');
+            }
+        }
+
+        function closeShopNameModal() {
+            document.getElementById('shopNameModal').classList.add('hidden');
+        }
+
+        function toggleBillMenu() {
+            const menu = document.getElementById('billMenu');
+            menu.classList.toggle('hidden');
+        }
+
+        function toggleHistoryBillMenu() {
+            const menu = document.getElementById('historyBillMenu');
+            menu.classList.toggle('hidden');
+        }
+
+        function addEntry() {
+            const amount = parseInt(document.getElementById('amount').value) || 0;
+            const description = document.getElementById('itemDescription').value.trim();
+
+            if (amount <= 0) {
+                alert('कृपया राशि भरें!');
+                return;
+            }
+
+            if (!description) {
+                alert('कृपया सामान का नाम लिखें!');
+                return;
+            }
+
+            const entry = {
+                id: entryCounter,
+                amount: amount,
+                description: description
+            };
+
+            entries.push(entry);
+            renderEntries();
+            updateTotal();
+            clearForm();
+            entryCounter++;
+            
+            // Auto scroll to latest entry
+            setTimeout(() => {
+                const entriesList = document.getElementById('entriesList');
+                entriesList.scrollTop = entriesList.scrollHeight;
+            }, 100);
+        }
+
+        function renderEntries() {
+            const container = document.getElementById('entriesList');
+            container.innerHTML = '';
+
+            entries.forEach((entry, index) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center py-3 border-b border-gray-100 hover:bg-gray-50';
+                row.innerHTML = `
+                    <div class="w-32 text-right font-bold text-lg"><span class="font-light">₹</span> ${entry.amount}</div>
+                    <div class="flex-1 text-left text-lg pl-4">${entry.description}</div>
+                    <button onclick="removeEntry(${index})" class="text-red-500 hover:text-red-700 no-print px-2">×</button>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function removeEntry(index) {
+            entries.splice(index, 1);
+            renderEntries();
+            updateTotal();
+        }
+
+        function updateTotal() {
+            const total = entries.reduce((sum, entry) => sum + entry.amount, 0);
+            document.getElementById('totalAmount').innerHTML = `<span class="font-light">₹</span> ${total}`;
+        }
+
+        function clearForm() {
+            document.getElementById('amount').value = '';
+            document.getElementById('itemDescription').value = '';
+            document.getElementById('amount').focus();
+        }
+
+        function clearBill() {
+            if (confirm('क्या आप सभी entries को clear करना चाहते हैं?')) {
+                entries = [];
+                entryCounter = 1;
+                renderEntries();
+                updateTotal();
+                clearForm();
+            }
+        }
+
+        function printBill() {
+            const originalContent = document.body.innerHTML;
+            const currentDate = new Date().toLocaleDateString('hi-IN');
+            const currentTime = new Date().toLocaleTimeString('hi-IN');
+            const total = entries.reduce((sum, entry) => sum + entry.amount, 0);
+            
+            let printContent = `
+                <div style="padding: 20px; font-family: 'Noto Sans Devanagari', sans-serif; max-width: 400px; margin: 0 auto; border: 2px solid #000;">
+                    <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
+                        <h2 style="margin: 0; font-size: 24px; font-weight: bold;">${shopName}</h2>
+                        <div style="margin-top: 10px; font-size: 14px;">
+                            <div>दिनांक: ${currentDate} | समय: ${currentTime}</div>
+                            <div>बिल नं: ${String(billCounter).padStart(4, '0')}</div>
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+            `;
+            
+            entries.forEach((entry, index) => {
+                printContent += `
+                    <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #ccc;">
+                        <span style="font-weight: bold;">₹${entry.amount}</span>
+                        <span style="flex: 1; margin-left: 15px;">${entry.description}</span>
+                    </div>
+                `;
+            });
+            
+            printContent += `
+                    </div>
+                    <div style="border-top: 2px solid #000; padding-top: 10px; margin-top: 15px;">
+                        <div style="text-align: left;">
+                            <div style="font-size: 16px; font-weight: 600; margin-bottom: 5px;">कुल राशि:</div>
+                            <div style="font-size: 20px; font-weight: bold;"><span style="font-weight: 300;">₹</span> ${total}</div>
+                        </div>
+                    </div>
+                    <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #ccc;">
+                        <p style="margin: 0; font-size: 16px; font-weight: bold;">धन्यवाद!</p>
+                        <p style="margin: 5px 0 0 0; font-size: 14px;">आपका स्वागत है</p>
+                    </div>
+                </div>
+            `;
+            
+            document.body.innerHTML = printContent;
+            window.print();
+            document.body.innerHTML = originalContent;
+            location.reload();
+        }
+
+        function saveBill() {
+            if (entries.length === 0) {
+                alert('कृपया पहले कुछ entries add करें!');
+                return;
+            }
+
+            const billData = {
+                id: billCounter,
+                date: new Date().toISOString(),
+                entries: [...entries],
+                total: entries.reduce((sum, entry) => sum + entry.amount, 0)
+            };
+
+            // Save to localStorage
+            let savedBills = JSON.parse(localStorage.getItem('savedBills') || '[]');
+            savedBills.unshift(billData);
+            
+            // Keep only last 50 bills
+            if (savedBills.length > 50) {
+                savedBills = savedBills.slice(0, 50);
+            }
+            
+            localStorage.setItem('savedBills', JSON.stringify(savedBills));
+            
+            // Update bill counter
+            billCounter++;
+            localStorage.setItem('billCounter', billCounter.toString());
+            updateBillNumber();
+
+            showSuccess('✅ Bill successfully saved!');
+        }
+
+        function shareBill() {
+            if (entries.length === 0) {
+                alert('कृपया पहले कुछ entries add करें!');
+                return;
+            }
+
+            const total = entries.reduce((sum, entry) => sum + entry.amount, 0);
+            let shareText = `📋 BILL\n`;
+            shareText += `Date: ${new Date().toLocaleDateString('hi-IN')}\n`;
+            shareText += `Bill No: ${String(billCounter).padStart(4, '0')}\n\n`;
+            
+            entries.forEach((entry, index) => {
+                shareText += `₹${entry.amount} - ${entry.description}\n`;
+            });
+            
+            shareText += `\nTotal Amount: ₹${total}`;
+
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Bill Details',
+                    text: shareText
+                });
+            } else {
+                navigator.clipboard.writeText(shareText).then(() => {
+                    showSuccess('📋 Bill copied to clipboard!');
+                });
+            }
+        }
+
+        function downloadImage() {
+            if (entries.length === 0) {
+                alert('कृपया पहले कुछ entries add करें!');
+                return;
+            }
+
+            const currentDate = new Date().toLocaleDateString('hi-IN');
+            const currentTime = new Date().toLocaleTimeString('hi-IN');
+            const total = entries.reduce((sum, entry) => sum + entry.amount, 0);
+            
+            // Create a temporary div for image generation
+            const tempDiv = document.createElement('div');
+            tempDiv.style.cssText = 'position: absolute; left: -9999px; top: -9999px; background: white; padding: 20px; font-family: "Noto Sans Devanagari", sans-serif; max-width: 400px; border: 2px solid #000;';
+            
+            let imageContent = `
+                <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
+                    <h2 style="margin: 0; font-size: 24px; font-weight: bold; color: #000;">${shopName}</h2>
+                    <div style="margin-top: 10px; font-size: 14px; color: #000;">
+                        <div>दिनांक: ${currentDate} | समय: ${currentTime}</div>
+                        <div>बिल नं: ${String(billCounter).padStart(4, '0')}</div>
+                    </div>
+                </div>
+                <div style="margin-bottom: 15px;">
+            `;
+            
+            entries.forEach((entry, index) => {
+                imageContent += `
+                    <div style="display: flex; padding: 5px 0; border-bottom: 1px solid #ccc;">
+                        <div style="width: 120px; text-align: right; font-weight: bold; color: #000;"><span style="font-weight: 300;">₹</span> ${entry.amount}</div>
+                        <div style="flex: 1; margin-left: 15px; color: #000;">${entry.description}</div>
+                    </div>
+                `;
+            });
+            
+            imageContent += `
+                </div>
+                <div style="border-top: 2px solid #000; padding-top: 10px; margin-top: 15px;">
+                    <div style="text-align: left; color: #000;">
+                        <div style="font-size: 16px; font-weight: 600; margin-bottom: 5px;">कुल राशि:</div>
+                        <div style="font-size: 20px; font-weight: bold;"><span style="font-weight: 300;">₹</span> ${total}</div>
+                    </div>
+                </div>
+                <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #ccc;">
+                    <p style="margin: 0; font-size: 16px; font-weight: bold; color: #000;">धन्यवाद!</p>
+                    <p style="margin: 5px 0 0 0; font-size: 14px; color: #000;">आपका स्वागत है</p>
+                </div>
+            `;
+            
+            tempDiv.innerHTML = imageContent;
+            document.body.appendChild(tempDiv);
+            
+            html2canvas(tempDiv, {
+                backgroundColor: '#ffffff',
+                scale: 2
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `bill_${String(billCounter).padStart(4, '0')}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+                document.body.removeChild(tempDiv);
+                showSuccess('📷 Bill image downloaded!');
+            });
+        }
+
+        function showHistory() {
+            const savedBills = JSON.parse(localStorage.getItem('savedBills') || '[]');
+            const historyList = document.getElementById('historyList');
+            
+            if (savedBills.length === 0) {
+                historyList.innerHTML = '<p class="text-gray-500 text-center py-8">कोई saved bills नहीं मिले</p>';
+            } else {
+                historyList.innerHTML = '';
+                savedBills.forEach(bill => {
+                    const billDiv = document.createElement('div');
+                    billDiv.className = 'border border-gray-200 rounded-lg p-4 mb-3 hover:bg-gray-50';
+                    billDiv.innerHTML = `
+                        <div class="flex justify-between items-start mb-2">
+                            <h4 class="font-semibold cursor-pointer" onclick="viewBillDetails(${JSON.stringify(bill).replace(/"/g, '&quot;')})">Bill #${String(bill.id).padStart(4, '0')}</h4>
+                            <span class="text-sm text-gray-500">${new Date(bill.date).toLocaleDateString('hi-IN')}</span>
+                        </div>
+                        <div class="text-sm text-gray-600 mb-2 cursor-pointer" onclick="viewBillDetails(${JSON.stringify(bill).replace(/"/g, '&quot;')})">${bill.entries.length} entries</div>
+                        <div class="flex justify-between items-center">
+                            <div class="font-bold text-indigo-600 cursor-pointer" onclick="viewBillDetails(${JSON.stringify(bill).replace(/"/g, '&quot;')})">Total: ₹${bill.total}</div>
+                            <div class="flex gap-2">
+                                <button onclick="event.stopPropagation(); printHistoryBill(${JSON.stringify(bill).replace(/"/g, '&quot;')})" class="bg-blue-100 hover:bg-blue-200 p-2 rounded-lg transition-colors text-sm" title="Print">
+                                    🖨️
+                                </button>
+                                <button onclick="event.stopPropagation(); shareHistoryBill(${JSON.stringify(bill).replace(/"/g, '&quot;')})" class="bg-green-100 hover:bg-green-200 p-2 rounded-lg transition-colors text-sm" title="Share">
+                                    📤
+                                </button>
+                                <button onclick="event.stopPropagation(); sendHistoryNotice(${JSON.stringify(bill).replace(/"/g, '&quot;')})" class="bg-orange-100 hover:bg-orange-200 p-2 rounded-lg transition-colors text-sm" title="Send Notice">
+                                    📢
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    historyList.appendChild(billDiv);
+                });
+            }
+            
+            document.getElementById('historyModal').classList.remove('hidden');
+        }
+
+        let currentViewingBill = null;
+
+        function viewBillDetails(billData) {
+            currentViewingBill = billData;
+            const title = document.getElementById('billDetailsTitle');
+            const content = document.getElementById('billDetailsContent');
+            
+            title.textContent = `Bill #${String(billData.id).padStart(4, '0')} - ${new Date(billData.date).toLocaleDateString('hi-IN')}`;
+            
+            let detailsHTML = '<div class="space-y-3" id="viewingBillContent">';
+            detailsHTML += `
+                <div class="text-center mb-6 border-b pb-4">
+                    <h2 class="text-3xl font-bold text-gray-800 mb-2">${shopName}</h2>
+                    <div class="flex justify-between text-sm text-gray-600">
+                        <span>दिनांक: ${new Date(billData.date).toLocaleDateString('hi-IN')}</span>
+                        <span>बिल नं: ${String(billData.id).padStart(4, '0')}</span>
+                    </div>
+                </div>
+            `;
+            
+            billData.entries.forEach((entry, index) => {
+                detailsHTML += `
+                    <div class="flex items-center py-2 border-b border-gray-100">
+                        <div class="w-24 text-right font-bold"><span class="font-light">₹</span> ${entry.amount}</div>
+                        <div class="flex-1 text-left pl-4">${entry.description}</div>
+                    </div>
+                `;
+            });
+            
+            detailsHTML += `
+                <div class="border-t pt-4 mt-4">
+                    <div class="text-left">
+                        <div class="text-lg font-semibold text-gray-700 mb-2">कुल राशि:</div>
+                        <div class="text-2xl font-bold text-indigo-600"><span class="font-light">₹</span> ${billData.total}</div>
+                    </div>
+                </div>
+            </div>`;
+            
+            content.innerHTML = detailsHTML;
+            
+            closeHistory();
+            document.getElementById('billDetailsModal').classList.remove('hidden');
+        }
+
+        function printBillDetails() {
+            if (!currentViewingBill) return;
+            
+            const originalContent = document.body.innerHTML;
+            const currentDate = new Date(currentViewingBill.date).toLocaleDateString('hi-IN');
+            const currentTime = new Date(currentViewingBill.date).toLocaleTimeString('hi-IN');
+            
+            let printContent = `
+                <div style="padding: 20px; font-family: 'Noto Sans Devanagari', sans-serif; max-width: 400px; margin: 0 auto; border: 2px solid #000;">
+                    <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
+                        <h2 style="margin: 0; font-size: 24px; font-weight: bold;">${shopName}</h2>
+                        <div style="margin-top: 10px; font-size: 14px;">
+                            <div>दिनांक: ${currentDate} | समय: ${currentTime}</div>
+                            <div>बिल नं: ${String(currentViewingBill.id).padStart(4, '0')}</div>
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+            `;
+            
+            currentViewingBill.entries.forEach((entry, index) => {
+                printContent += `
+                    <div style="display: flex; padding: 5px 0; border-bottom: 1px solid #ccc;">
+                        <div style="width: 120px; text-align: right; font-weight: bold;"><span style="font-weight: 300;">₹</span> ${entry.amount}</div>
+                        <div style="flex: 1; margin-left: 15px;">${entry.description}</div>
+                    </div>
+                `;
+            });
+            
+            printContent += `
+                    </div>
+                    <div style="border-top: 2px solid #000; padding-top: 10px; margin-top: 15px;">
+                        <div style="text-align: left; font-size: 18px; font-weight: bold;">
+                            <div>कुल राशि: ₹ ${currentViewingBill.total}</div>
+                        </div>
+                    </div>
+                    <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #ccc;">
+                        <p style="margin: 0; font-size: 16px; font-weight: bold;">धन्यवाद!</p>
+                        <p style="margin: 5px 0 0 0; font-size: 14px;">आपका स्वागत है</p>
+                    </div>
+                </div>
+            `;
+            
+            document.body.innerHTML = printContent;
+            window.print();
+            document.body.innerHTML = originalContent;
+            location.reload();
+        }
+
+        function shareBillDetails() {
+            if (!currentViewingBill) return;
+            
+            let shareText = `📋 ${shopName}\n`;
+            shareText += `Date: ${new Date(currentViewingBill.date).toLocaleDateString('hi-IN')}\n`;
+            shareText += `Bill No: ${String(currentViewingBill.id).padStart(4, '0')}\n\n`;
+            
+            currentViewingBill.entries.forEach((entry, index) => {
+                shareText += `₹${entry.amount} - ${entry.description}\n`;
+            });
+            
+            shareText += `\nTotal Amount: ₹${currentViewingBill.total}\n\nधन्यवाद!`;
+
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Bill Details',
+                    text: shareText
+                });
+            } else {
+                navigator.clipboard.writeText(shareText).then(() => {
+                    showSuccess('📋 Bill copied to clipboard!');
+                });
+            }
+        }
+
+        function downloadBillDetailsImage() {
+            if (!currentViewingBill) return;
+            
+            const currentDate = new Date(currentViewingBill.date).toLocaleDateString('hi-IN');
+            const currentTime = new Date(currentViewingBill.date).toLocaleTimeString('hi-IN');
+            
+            // Create a temporary div for image generation
+            const tempDiv = document.createElement('div');
+            tempDiv.style.cssText = 'position: absolute; left: -9999px; top: -9999px; background: white; padding: 20px; font-family: "Noto Sans Devanagari", sans-serif; max-width: 400px; border: 2px solid #000;';
+            
+            let imageContent = `
+                <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
+                    <h2 style="margin: 0; font-size: 24px; font-weight: bold; color: #000;">${shopName}</h2>
+                    <div style="margin-top: 10px; font-size: 14px; color: #000;">
+                        <div>दिनांक: ${currentDate} | समय: ${currentTime}</div>
+                        <div>बिल नं: ${String(currentViewingBill.id).padStart(4, '0')}</div>
+                    </div>
+                </div>
+                <div style="margin-bottom: 15px;">
+            `;
+            
+            currentViewingBill.entries.forEach((entry, index) => {
+                imageContent += `
+                    <div style="display: flex; padding: 5px 0; border-bottom: 1px solid #ccc;">
+                        <div style="width: 120px; text-align: right; font-weight: bold; color: #000;"><span style="font-weight: 300;">₹</span> ${entry.amount}</div>
+                        <div style="flex: 1; margin-left: 15px; color: #000;">${entry.description}</div>
+                    </div>
+                `;
+            });
+            
+            imageContent += `
+                </div>
+                <div style="border-top: 2px solid #000; padding-top: 10px; margin-top: 15px;">
+                    <div style="text-align: left; color: #000;">
+                        <div style="font-size: 16px; font-weight: 600; margin-bottom: 5px;">कुल राशि:</div>
+                        <div style="font-size: 20px; font-weight: bold;"><span style="font-weight: 300;">₹</span> ${currentViewingBill.total}</div>
+                    </div>
+                </div>
+                <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #ccc;">
+                    <p style="margin: 0; font-size: 16px; font-weight: bold; color: #000;">धन्यवाद!</p>
+                    <p style="margin: 5px 0 0 0; font-size: 14px; color: #000;">आपका स्वागत है</p>
+                </div>
+            `;
+            
+            tempDiv.innerHTML = imageContent;
+            document.body.appendChild(tempDiv);
+            
+            html2canvas(tempDiv, {
+                backgroundColor: '#ffffff',
+                scale: 2
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `bill_${String(currentViewingBill.id).padStart(4, '0')}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+                document.body.removeChild(tempDiv);
+                showSuccess('📷 Bill image downloaded!');
+            });
+        }
+
+        function closeBillDetails() {
+            document.getElementById('billDetailsModal').classList.add('hidden');
+        }
+
+        function closeHistory() {
+            document.getElementById('historyModal').classList.add('hidden');
+        }
+
+        function showSuccess(message) {
+            const successMsg = document.getElementById('successMessage');
+            document.getElementById('successText').textContent = message;
+            successMsg.classList.remove('hidden');
+            setTimeout(() => {
+                successMsg.classList.add('hidden');
+            }, 3000);
+        }
+
+        function sendNotice() {
+            if (entries.length === 0) {
+                alert('कृपया पहले कुछ entries add करें!');
+                return;
+            }
+
+            const total = entries.reduce((sum, entry) => sum + entry.amount, 0);
+            const currentDate = new Date().toLocaleDateString('hi-IN');
+            const currentTime = new Date().toLocaleTimeString('hi-IN');
+            
+            let noticeText = `📢 PAYMENT NOTICE\n\n`;
+            noticeText += `${shopName}\n`;
+            noticeText += `Date: ${currentDate}\n`;
+            noticeText += `Time: ${currentTime}\n`;
+            noticeText += `Bill No: ${String(billCounter).padStart(4, '0')}\n\n`;
+            noticeText += `Total Amount Due: ₹${total}\n\n`;
+            noticeText += `कृपया जल्दी भुगतान करें।\nPlease make payment soon.\n\nधन्यवाद!`;
+
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Payment Notice',
+                    text: noticeText
+                });
+            } else {
+                navigator.clipboard.writeText(noticeText).then(() => {
+                    showSuccess('📢 Payment notice copied to clipboard!');
+                });
+            }
+        }
+
+        function sendNoticeDetails() {
+            if (!currentViewingBill) return;
+            
+            const currentDate = new Date(currentViewingBill.date).toLocaleDateString('hi-IN');
+            const currentTime = new Date(currentViewingBill.date).toLocaleTimeString('hi-IN');
+            
+            let noticeText = `📢 PAYMENT NOTICE\n\n`;
+            noticeText += `${shopName}\n`;
+            noticeText += `Date: ${currentDate}\n`;
+            noticeText += `Time: ${currentTime}\n`;
+            noticeText += `Bill No: ${String(currentViewingBill.id).padStart(4, '0')}\n\n`;
+            noticeText += `Total Amount Due: ₹${currentViewingBill.total}\n\n`;
+            noticeText += `कृपया जल्दी भुगतान करें।\nPlease make payment soon.\n\nधन्यवाद!`;
+
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Payment Notice',
+                    text: noticeText
+                });
+            } else {
+                navigator.clipboard.writeText(noticeText).then(() => {
+                    showSuccess('📢 Payment notice copied to clipboard!');
+                });
+            }
+        }
+
+        function printHistoryBill(billData) {
+            const originalContent = document.body.innerHTML;
+            const currentDate = new Date(billData.date).toLocaleDateString('hi-IN');
+            const currentTime = new Date(billData.date).toLocaleTimeString('hi-IN');
+            
+            let printContent = `
+                <div style="padding: 20px; font-family: 'Noto Sans Devanagari', sans-serif; max-width: 400px; margin: 0 auto; border: 2px solid #000;">
+                    <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
+                        <h2 style="margin: 0; font-size: 24px; font-weight: bold;">${shopName}</h2>
+                        <div style="margin-top: 10px; font-size: 14px;">
+                            <div>दिनांक: ${currentDate} | समय: ${currentTime}</div>
+                            <div>बिल नं: ${String(billData.id).padStart(4, '0')}</div>
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+            `;
+            
+            billData.entries.forEach((entry, index) => {
+                printContent += `
+                    <div style="display: flex; padding: 5px 0; border-bottom: 1px solid #ccc;">
+                        <div style="width: 120px; text-align: right; font-weight: bold;"><span style="font-weight: 300;">₹</span> ${entry.amount}</div>
+                        <div style="flex: 1; margin-left: 15px;">${entry.description}</div>
+                    </div>
+                `;
+            });
+            
+            printContent += `
+                    </div>
+                    <div style="border-top: 2px solid #000; padding-top: 10px; margin-top: 15px;">
+                        <div style="text-align: left;">
+                            <div style="font-size: 16px; font-weight: 600; margin-bottom: 5px;">कुल राशि:</div>
+                            <div style="font-size: 20px; font-weight: bold;"><span style="font-weight: 300;">₹</span> ${billData.total}</div>
+                        </div>
+                    </div>
+                    <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #ccc;">
+                        <p style="margin: 0; font-size: 16px; font-weight: bold;">धन्यवाद!</p>
+                        <p style="margin: 5px 0 0 0; font-size: 14px;">आपका स्वागत है</p>
+                    </div>
+                </div>
+            `;
+            
+            document.body.innerHTML = printContent;
+            window.print();
+            document.body.innerHTML = originalContent;
+            location.reload();
+        }
+
+        function shareHistoryBill(billData) {
+            let shareText = `📋 ${shopName}\n`;
+            shareText += `Date: ${new Date(billData.date).toLocaleDateString('hi-IN')}\n`;
+            shareText += `Bill No: ${String(billData.id).padStart(4, '0')}\n\n`;
+            
+            billData.entries.forEach((entry, index) => {
+                shareText += `₹${entry.amount} - ${entry.description}\n`;
+            });
+            
+            shareText += `\nTotal Amount: ₹${billData.total}\n\nधन्यवाद!`;
+
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Bill Details',
+                    text: shareText
+                });
+            } else {
+                navigator.clipboard.writeText(shareText).then(() => {
+                    showSuccess('📋 Bill copied to clipboard!');
+                });
+            }
+        }
+
+        function sendHistoryNotice(billData) {
+            const currentDate = new Date(billData.date).toLocaleDateString('hi-IN');
+            const currentTime = new Date(billData.date).toLocaleTimeString('hi-IN');
+            
+            let noticeText = `📢 PAYMENT NOTICE\n\n`;
+            noticeText += `${shopName}\n`;
+            noticeText += `Date: ${currentDate}\n`;
+            noticeText += `Time: ${currentTime}\n`;
+            noticeText += `Bill No: ${String(billData.id).padStart(4, '0')}\n\n`;
+            noticeText += `Total Amount Due: ₹${billData.total}\n\n`;
+            noticeText += `कृपया जल्दी भुगतान करें।\nPlease make payment soon.\n\nधन्यवाद!`;
+
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Payment Notice',
+                    text: noticeText
+                });
+            } else {
+                navigator.clipboard.writeText(noticeText).then(() => {
+                    showSuccess('📢 Payment notice copied to clipboard!');
+                });
+            }
+        }
+
+        // Enter key support
+        document.getElementById('amount').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('itemDescription').focus();
+            }
+        });
+
+        document.getElementById('itemDescription').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addEntry();
+            }
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96ce6c8ce3c33bb0',t:'MTc1NDgxNzY5Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
