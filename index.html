@@ -273,23 +273,36 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
-            updateDate();
-            updateDayName();
-            loadBillCounter();
-            loadShopName();
-            loadAppName();
-            loadTheme();
-            loadCurrentBill(); // Load current bill data
-            
-            // Close menus when clicking outside
-            document.addEventListener('click', function(e) {
-                if (!e.target.closest('#billMenu') && !e.target.closest('button[onclick="toggleBillMenu()"]')) {
-                    document.getElementById('billMenu').classList.add('hidden');
+            try {
+                updateDate();
+                updateDayName();
+                loadBillCounter();
+                loadShopName();
+                loadAppName();
+                loadCurrentBill(); // Load current bill data first
+                loadTheme(); // Load theme after DOM is ready
+                
+                // Close menus when clicking outside
+                document.addEventListener('click', function(e) {
+                    const billMenu = document.getElementById('billMenu');
+                    const historyBillMenu = document.getElementById('historyBillMenu');
+                    
+                    if (billMenu && !e.target.closest('#billMenu') && !e.target.closest('button[onclick="toggleBillMenu()"]')) {
+                        billMenu.classList.add('hidden');
+                    }
+                    if (historyBillMenu && !e.target.closest('#historyBillMenu') && !e.target.closest('button[onclick="toggleHistoryBillMenu()"]')) {
+                        historyBillMenu.classList.add('hidden');
+                    }
+                });
+                
+                // Focus on amount input
+                const amountInput = document.getElementById('amount');
+                if (amountInput) {
+                    amountInput.focus();
                 }
-                if (!e.target.closest('#historyBillMenu') && !e.target.closest('button[onclick="toggleHistoryBillMenu()"]')) {
-                    document.getElementById('historyBillMenu').classList.add('hidden');
-                }
-            });
+            } catch (error) {
+                console.error('Initialization error:', error);
+            }
         });
 
         function updateDate() {
@@ -315,7 +328,6 @@
             const saved = localStorage.getItem('billCounter');
             if (saved) {
                 billCounter = parseInt(saved);
-                updateBillNumber();
             }
         }
 
@@ -336,33 +348,55 @@
         }
 
         function loadTheme() {
-            const saved = localStorage.getItem('currentTheme');
-            if (saved) {
-                currentTheme = saved;
+            try {
+                const saved = localStorage.getItem('currentTheme');
+                if (saved) {
+                    currentTheme = saved;
+                } else {
+                    currentTheme = 'auto';
+                }
                 applyTheme(currentTheme);
-            } else {
+            } catch (error) {
+                console.error('Error loading theme:', error);
+                currentTheme = 'auto';
                 applyTheme('auto');
             }
         }
 
         function loadCurrentBill() {
-            const saved = localStorage.getItem('currentBillEntries');
-            if (saved) {
-                entries = JSON.parse(saved);
-                renderEntries();
-                updateTotal();
+            try {
+                const saved = localStorage.getItem('currentBillEntries');
+                if (saved) {
+                    const parsedEntries = JSON.parse(saved);
+                    if (Array.isArray(parsedEntries)) {
+                        entries = parsedEntries;
+                        renderEntries();
+                        updateTotal();
+                    }
+                }
                 
                 // Load entry counter
                 const savedCounter = localStorage.getItem('currentEntryCounter');
                 if (savedCounter) {
-                    entryCounter = parseInt(savedCounter);
+                    const counter = parseInt(savedCounter);
+                    if (!isNaN(counter)) {
+                        entryCounter = counter;
+                    }
                 }
+            } catch (error) {
+                console.error('Error loading current bill:', error);
+                entries = [];
+                entryCounter = 1;
             }
         }
 
         function saveCurrentBill() {
-            localStorage.setItem('currentBillEntries', JSON.stringify(entries));
-            localStorage.setItem('currentEntryCounter', entryCounter.toString());
+            try {
+                localStorage.setItem('currentBillEntries', JSON.stringify(entries));
+                localStorage.setItem('currentEntryCounter', entryCounter.toString());
+            } catch (error) {
+                console.error('Error saving current bill:', error);
+            }
         }
 
         function startLongPress() {
@@ -392,67 +426,86 @@
         }
 
         function saveSettings() {
-            const newAppNameValue = document.getElementById('newAppName').value.trim();
-            const newShopNameValue = document.getElementById('newShopName').value.trim();
-            const newTheme = document.getElementById('themeSelect').value;
+            try {
+                const newAppNameValue = document.getElementById('newAppName').value.trim();
+                const newShopNameValue = document.getElementById('newShopName').value.trim();
+                const newTheme = document.getElementById('themeSelect').value;
 
-            if (newAppNameValue) {
-                appName = newAppNameValue;
-                document.getElementById('appName').textContent = appName;
-                localStorage.setItem('appName', appName);
+                if (newAppNameValue) {
+                    appName = newAppNameValue;
+                    const appNameElement = document.getElementById('appName');
+                    if (appNameElement) {
+                        appNameElement.textContent = appName;
+                    }
+                    localStorage.setItem('appName', appName);
+                }
+
+                if (newShopNameValue) {
+                    shopName = newShopNameValue;
+                    const shopNameElement = document.getElementById('shopName');
+                    if (shopNameElement) {
+                        shopNameElement.textContent = shopName;
+                    }
+                    localStorage.setItem('shopName', shopName);
+                }
+
+                if (newTheme && newTheme !== currentTheme) {
+                    currentTheme = newTheme;
+                    localStorage.setItem('currentTheme', currentTheme);
+                    applyTheme(currentTheme);
+                }
+
+                closeSettings();
+                showSuccess('⚙️ Settings saved successfully!');
+            } catch (error) {
+                console.error('Error saving settings:', error);
+                showSuccess('❌ Error saving settings!');
             }
-
-            if (newShopNameValue) {
-                shopName = newShopNameValue;
-                document.getElementById('shopName').textContent = shopName;
-                localStorage.setItem('shopName', shopName);
-            }
-
-            if (newTheme !== currentTheme) {
-                currentTheme = newTheme;
-                localStorage.setItem('currentTheme', currentTheme);
-                applyTheme(currentTheme);
-            }
-
-            closeSettings();
-            showSuccess('⚙️ Settings saved successfully!');
         }
 
         function applyTheme(theme) {
             const body = document.getElementById('appBody');
+            if (!body) return;
+            
+            // Remove all existing theme classes
+            body.className = body.className.replace(/bg-gradient-to-br.*?min-h-screen/g, '').trim();
+            
             const themes = {
                 auto: () => {
-                    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
                     if (isDark) {
                         body.className = 'bg-gradient-to-br from-gray-900 to-black min-h-screen text-white';
                     } else {
                         body.className = 'bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen';
                     }
                 },
-                royal: () => body.className = 'bg-gradient-to-br from-purple-900 to-indigo-900 min-h-screen',
-                ocean: () => body.className = 'bg-gradient-to-br from-blue-900 to-cyan-900 min-h-screen',
-                sunset: () => body.className = 'bg-gradient-to-br from-orange-400 to-red-600 min-h-screen',
-                forest: () => body.className = 'bg-gradient-to-br from-green-800 to-emerald-900 min-h-screen',
-                midnight: () => body.className = 'bg-gradient-to-br from-gray-900 to-black min-h-screen',
-                rose: () => body.className = 'bg-gradient-to-br from-pink-400 to-rose-600 min-h-screen',
-                emerald: () => body.className = 'bg-gradient-to-br from-emerald-600 to-teal-800 min-h-screen',
-                crimson: () => body.className = 'bg-gradient-to-br from-red-700 to-red-900 min-h-screen',
-                sapphire: () => body.className = 'bg-gradient-to-br from-blue-700 to-indigo-900 min-h-screen',
-                golden: () => body.className = 'bg-gradient-to-br from-yellow-400 to-orange-600 min-h-screen',
-                platinum: () => body.className = 'bg-gradient-to-br from-gray-400 to-gray-600 min-h-screen',
-                neon: () => body.className = 'bg-gradient-to-br from-cyan-400 to-purple-600 min-h-screen',
-                arctic: () => body.className = 'bg-gradient-to-br from-blue-100 to-cyan-200 min-h-screen',
-                volcano: () => body.className = 'bg-gradient-to-br from-red-600 to-orange-800 min-h-screen',
-                galaxy: () => body.className = 'bg-gradient-to-br from-purple-900 to-black min-h-screen',
-                mint: () => body.className = 'bg-gradient-to-br from-green-300 to-teal-400 min-h-screen',
-                coral: () => body.className = 'bg-gradient-to-br from-pink-300 to-orange-400 min-h-screen',
-                lavender: () => body.className = 'bg-gradient-to-br from-purple-300 to-pink-400 min-h-screen',
-                bronze: () => body.className = 'bg-gradient-to-br from-yellow-600 to-orange-700 min-h-screen',
-                diamond: () => body.className = 'bg-gradient-to-br from-gray-100 to-white min-h-screen'
+                royal: () => body.className = 'bg-gradient-to-br from-purple-900 to-indigo-900 min-h-screen text-white',
+                ocean: () => body.className = 'bg-gradient-to-br from-blue-900 to-cyan-900 min-h-screen text-white',
+                sunset: () => body.className = 'bg-gradient-to-br from-orange-400 to-red-600 min-h-screen text-white',
+                forest: () => body.className = 'bg-gradient-to-br from-green-800 to-emerald-900 min-h-screen text-white',
+                midnight: () => body.className = 'bg-gradient-to-br from-gray-900 to-black min-h-screen text-white',
+                rose: () => body.className = 'bg-gradient-to-br from-pink-400 to-rose-600 min-h-screen text-white',
+                emerald: () => body.className = 'bg-gradient-to-br from-emerald-600 to-teal-800 min-h-screen text-white',
+                crimson: () => body.className = 'bg-gradient-to-br from-red-700 to-red-900 min-h-screen text-white',
+                sapphire: () => body.className = 'bg-gradient-to-br from-blue-700 to-indigo-900 min-h-screen text-white',
+                golden: () => body.className = 'bg-gradient-to-br from-yellow-400 to-orange-600 min-h-screen text-black',
+                platinum: () => body.className = 'bg-gradient-to-br from-gray-400 to-gray-600 min-h-screen text-white',
+                neon: () => body.className = 'bg-gradient-to-br from-cyan-400 to-purple-600 min-h-screen text-white',
+                arctic: () => body.className = 'bg-gradient-to-br from-blue-100 to-cyan-200 min-h-screen text-black',
+                volcano: () => body.className = 'bg-gradient-to-br from-red-600 to-orange-800 min-h-screen text-white',
+                galaxy: () => body.className = 'bg-gradient-to-br from-purple-900 to-black min-h-screen text-white',
+                mint: () => body.className = 'bg-gradient-to-br from-green-300 to-teal-400 min-h-screen text-black',
+                coral: () => body.className = 'bg-gradient-to-br from-pink-300 to-orange-400 min-h-screen text-black',
+                lavender: () => body.className = 'bg-gradient-to-br from-purple-300 to-pink-400 min-h-screen text-black',
+                bronze: () => body.className = 'bg-gradient-to-br from-yellow-600 to-orange-700 min-h-screen text-white',
+                diamond: () => body.className = 'bg-gradient-to-br from-gray-100 to-white min-h-screen text-black'
             };
 
             if (themes[theme]) {
                 themes[theme]();
+            } else {
+                // Default fallback
+                body.className = 'bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen';
             }
         }
 
@@ -472,37 +525,53 @@
         }
 
         function addEntry() {
-            const amount = parseInt(document.getElementById('amount').value) || 0;
-            const description = document.getElementById('itemDescription').value.trim();
+            try {
+                const amountInput = document.getElementById('amount');
+                const descriptionInput = document.getElementById('itemDescription');
+                
+                if (!amountInput || !descriptionInput) {
+                    console.error('Input elements not found');
+                    return;
+                }
+                
+                const amount = parseInt(amountInput.value) || 0;
+                const description = descriptionInput.value.trim();
 
-            if (amount <= 0) {
-                alert('कृपया राशि भरें!');
-                return;
+                if (amount <= 0) {
+                    alert('कृपया राशि भरें!');
+                    amountInput.focus();
+                    return;
+                }
+
+                if (!description) {
+                    alert('कृपया सामान का नाम लिखें!');
+                    descriptionInput.focus();
+                    return;
+                }
+
+                const entry = {
+                    id: entryCounter,
+                    amount: amount,
+                    description: description
+                };
+
+                entries.push(entry);
+                renderEntries();
+                updateTotal();
+                clearForm();
+                entryCounter++;
+                saveCurrentBill(); // Save after adding entry
+                
+                // Auto scroll to latest entry
+                setTimeout(() => {
+                    const entriesList = document.getElementById('entriesList');
+                    if (entriesList) {
+                        entriesList.scrollTop = entriesList.scrollHeight;
+                    }
+                }, 100);
+            } catch (error) {
+                console.error('Error adding entry:', error);
             }
-
-            if (!description) {
-                alert('कृपया सामान का नाम लिखें!');
-                return;
-            }
-
-            const entry = {
-                id: entryCounter,
-                amount: amount,
-                description: description
-            };
-
-            entries.push(entry);
-            renderEntries();
-            updateTotal();
-            clearForm();
-            entryCounter++;
-            saveCurrentBill(); // Save after adding entry
-            
-            // Auto scroll to latest entry
-            setTimeout(() => {
-                const entriesList = document.getElementById('entriesList');
-                entriesList.scrollTop = entriesList.scrollHeight;
-            }, 100);
         }
 
         function renderEntries() {
@@ -534,9 +603,20 @@
         }
 
         function clearForm() {
-            document.getElementById('amount').value = '';
-            document.getElementById('itemDescription').value = '';
-            document.getElementById('amount').focus();
+            try {
+                const amountInput = document.getElementById('amount');
+                const descriptionInput = document.getElementById('itemDescription');
+                
+                if (amountInput) {
+                    amountInput.value = '';
+                    amountInput.focus();
+                }
+                if (descriptionInput) {
+                    descriptionInput.value = '';
+                }
+            } catch (error) {
+                console.error('Error clearing form:', error);
+            }
         }
 
         function clearBill() {
@@ -1310,5 +1390,5 @@
             }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96cea75785de84a1',t:'MTc1NDgyMDEwNS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96ceb134e5ededf5',t:'MTc1NDgyMDUwOS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
